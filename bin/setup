@@ -1,9 +1,7 @@
 #! /usr/bin/env bash
 
 echo "Setting up repo template"
-
-pipenv install
-pipenv install --dev pre-commit
-
-pre-commit install -t pre-commit
-pre-commit install -t pre-push
+# https://docs.astral.sh/uv/concepts/projects/dependencies/
+uv sync
+uv run pre-commit install -t pre-commit
+uv run pre-commit install -t pre-push

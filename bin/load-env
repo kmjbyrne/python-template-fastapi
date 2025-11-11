@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+
+# Load environment variables from .env files
+# Usage: source bin/load-env [env_name_or_file]
+#        source bin/load-env production      # Uses .env.production
+#        source bin/load-env .env.local      # Uses .env.local directly
+
+load_env() {
+    local input="${1:-.env}"
+    local env_file
+
+    # If input already starts with .env, use it as-is
+    # Otherwise, construct .env.{name}
+    if [[ "$input" == .env* ]]; then
+        env_file="$input"
+    else
+        env_file=".env.${input}"
+    fi
+
+    if [[ -f "$env_file" ]]; then
+        set -a  # Auto-export all variables
+        # shellcheck source=/dev/null
+        source "$env_file"
+        set +a  # Stop auto-export
+        echo "✓ Loaded: $env_file" >&2
+    else
+        echo "Warning: $env_file not found" >&2
+        return 1
+    fi
+}
+
+# If sourced, make function available and call it if args provided
+# If executed, run with args
+if [[ "${BASH_SOURCE[0]}" != "${0}" ]]; then
+    # Being sourced - make function available
+    export -f load_env
+    # If arguments provided, call the function
+    if [[ $# -gt 0 ]]; then
+        load_env "$@"
+    fi
+else
+    # Being executed - load the env file
+    load_env "$@"
+fi
