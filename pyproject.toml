@@ -121,6 +121,7 @@ data_file = "build/.coverage"
 
 [dependency-groups]
 dev = [
+    "commitizen>=4.10.0",
     "httpie>=3.2.4",
     "mypy>=1.18.2",
     "pre-commit>=4.4.0",
