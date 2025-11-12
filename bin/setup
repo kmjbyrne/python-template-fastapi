@@ -1,6 +1,7 @@
 #! /usr/bin/env bash
 
 echo "Setting up repo template"
+echo "uv.lock" >> .git/info/exclude;
 # https://docs.astral.sh/uv/concepts/projects/dependencies/
 uv sync
 uv run pre-commit install -t pre-commit
