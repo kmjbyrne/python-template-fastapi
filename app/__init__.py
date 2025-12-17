@@ -6,6 +6,8 @@ from pathlib import Path
 
 from app.config import settings
 
+logging.basicConfig(level=logging.DEBUG)
+
 
 def setup_logging() -> None:
     """Configure application logging using Python's logging hierarchy.
