@@ -1,7 +1,7 @@
 [project]
 name = "CHANGEME"
 version = "0.1.0"
-description = "Python base template"
+description = "Python FastAPI base template"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
@@ -9,19 +9,6 @@ dependencies = [
     "pydantic-settings>=2.12.0",
     "sqlmodel>=0.0.27",
     "uvicorn>=0.38.0",
-]
-
-[tool.setuptools]
-packages = ["app"]
-
-[project.optional-dependencies]
-dev = [
-    "httpie>=3.2.4",
-    "ruff>=0.8.0",
-    "mypy>=1.13.0",
-    "pytest>=8.3.0",
-    "pytest-cov>=6.0.0",
-    "pytest-asyncio>=0.24.0"
 ]
 
 [build-system]
