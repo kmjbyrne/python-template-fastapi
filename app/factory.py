@@ -12,7 +12,7 @@ from app.router import router
 def create_app(settings: Settings) -> FastAPI:
     """Create and configure a FastAPI application.
 
-    :param settings: Optional settings instance. Defaults to production settings.
+    :param settings: Settings instance the app is built from.
     :type settings: Settings
     :returns: Configured FastAPI application instance
     :rtype: FastAPI
@@ -28,9 +28,11 @@ def create_app(settings: Settings) -> FastAPI:
     # Deferred: app.db is absent once persistence is ejected, so a top-level
     # import would break the app for consumers who removed that layer.
     if find_spec("app.db"):
-        from app.db import init  # noqa: PLC0415
+        from app.db import create_db_engine, init  # noqa: PLC0415
 
-        init()
+        engine = create_db_engine(settings.DATABASE_URL)
+        init(engine)
+        app.state.engine = engine
 
     app.include_router(router)
     # noinspection PyTypeChecker

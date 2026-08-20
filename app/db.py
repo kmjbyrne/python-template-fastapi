@@ -5,24 +5,28 @@ import logging
 from pathlib import Path
 from typing import Any
 
-from sqlalchemy import event
+from sqlalchemy import Engine, event
 from sqlmodel import SQLModel, create_engine
-
-from app.config import settings
-
-engine = create_engine(settings.DATABASE_URL)
 
 logger = logging.getLogger(__name__)
 
 
-if engine.url.get_backend_name() == "sqlite":
+def create_db_engine(database_url: str) -> Engine:
+    """Build an engine for ``database_url`` and apply backend-specific setup."""
+    engine = create_engine(database_url)
 
-    @event.listens_for(engine, "connect")
-    def enable_foreign_keys(dbapi_connection: Any, _: Any) -> None:
-        """Enable foreign keys for every connection. SQLite defaults to off."""
-        cursor = dbapi_connection.cursor()
-        cursor.execute("PRAGMA foreign_keys=ON")
-        cursor.close()
+    if engine.url.get_backend_name() == "sqlite":
+        if engine.url.database:
+            Path(engine.url.database).parent.mkdir(parents=True, exist_ok=True)
+
+        @event.listens_for(engine, "connect")
+        def enable_foreign_keys(dbapi_connection: Any, _: Any) -> None:
+            """Enable foreign keys for every connection. SQLite defaults to off."""
+            cursor = dbapi_connection.cursor()
+            cursor.execute("PRAGMA foreign_keys=ON")
+            cursor.close()
+
+    return engine
 
 
 def import_all_models(models_path: str = "app.adapter.repository.sqlite") -> None:
@@ -43,15 +47,13 @@ def import_all_models(models_path: str = "app.adapter.repository.sqlite") -> Non
     logger.debug(f"Total model modules imported: {imported_count}")
 
 
-def drop() -> None:
+def drop(engine: Engine) -> None:
     """Drop all table entities."""
     import_all_models()
     SQLModel.metadata.drop_all(engine)
 
 
-def init() -> None:
+def init(engine: Engine) -> None:
     """Primary DB creation entrypoint."""
     import_all_models()
-    if engine.url.database and engine.url.get_backend_name() == "sqlite":
-        Path(engine.url.database).parent.mkdir(parents=True, exist_ok=True)
     SQLModel.metadata.create_all(engine)
