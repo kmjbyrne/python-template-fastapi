@@ -1,7 +1,6 @@
 """Main factory helpers for FastAPI instances."""
 
 from collections.abc import Callable
-from importlib.util import find_spec
 
 from fastapi import FastAPI, Response
 from starlette.middleware.cors import CORSMiddleware
@@ -28,15 +27,16 @@ def create_app(settings: Settings) -> FastAPI:
 
     checks: dict[str, Callable[[], bool]] = {}
 
-    # Deferred: app.db is absent once persistence is ejected, so a top-level
-    # import would break the app for consumers who removed that layer.
-    if find_spec("app.db"):
-        from app.db import create_db_engine, migrate, ping  # noqa: PLC0415
+    # persistence:begin
+    # Imported here so 'bin/template-eject persistence' can cut the block out
+    # without touching the import list above.
+    from app.db import create_db_engine, migrate, ping  # noqa: PLC0415
 
-        engine = create_db_engine(settings.DATABASE_URL)
-        migrate(engine)
-        app.state.engine = engine
-        checks["database"] = lambda: ping(app.state.engine)
+    engine = create_db_engine(settings.DATABASE_URL)
+    migrate(engine)
+    app.state.engine = engine
+    checks["database"] = lambda: ping(app.state.engine)
+    # persistence:end
 
     @app.get("/health")
     def health_check(response: Response) -> dict:

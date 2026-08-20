@@ -8,7 +8,9 @@ cd "$(dirname "$0")/.."
 
 echo "Setting up repo template"
 
-grep -qxF "uv.lock" .git/info/exclude 2>/dev/null || echo "uv.lock" >> .git/info/exclude
+# Earlier versions hid uv.lock from git here. That left consumers with a lock
+# CI could not see; uv.lock is tracked now and guarded by merge=ours instead.
+[[ -f .git/info/exclude ]] && sed -i.bak '/^uv\.lock$/d' .git/info/exclude && rm -f .git/info/exclude.bak
 
 # `merge=ours` in .gitattributes is inert unless the driver is registered. It
 # keeps template-owned files, and anything bin/template-eject has removed, from

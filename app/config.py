@@ -36,8 +36,9 @@ class Settings(BaseSettings):
     # Origins permitted by the CORS middleware
     CORS_ORIGINS: list[str] = ["http://localhost:3000"]
 
-    # Database (ignored when the persistence layer is ejected)
+    # persistence:begin
     DATABASE_URL: str = "sqlite:///instance/database.db"
+    # persistence:end
 
     # Logging goes to stdout. LOG_JSON emits one JSON object per line.
     LOG_LEVEL: str = "INFO"

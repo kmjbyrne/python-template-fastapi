@@ -46,8 +46,13 @@ docker_after() {
 }
 
 persistence_after() {
-    echo "  Persistence removed. Drop sqlmodel and alembic from pyproject.toml dependencies"
-    echo "  and re-run 'uv sync', then remove DATABASE_URL from app/config.py and .env.example."
+    uv remove --quiet sqlmodel alembic
+    # Marker comments bound the settings that only the persistence layer reads.
+    sed -i.bak '/# persistence:begin/,/# persistence:end/d' app/config.py app/factory.py .env.example
+    rm -f app/config.py.bak app/factory.py.bak .env.example.bak
+    uv run --quiet ruff format --quiet app/
+    echo "  Persistence removed. sqlmodel and alembic dropped from pyproject.toml and uv.lock;"
+    echo "  DATABASE_URL and the engine setup cut from app/config.py, app/factory.py, .env.example."
 }
 
 ci_after() {

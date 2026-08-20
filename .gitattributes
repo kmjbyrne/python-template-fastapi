@@ -4,3 +4,4 @@ README.md merge=ours
 docs/template/README.md merge=ours
 .env.example merge=ours
 pyproject.toml merge=ours
+uv.lock merge=ours

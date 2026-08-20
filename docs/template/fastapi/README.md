@@ -43,6 +43,7 @@ With the driver registered, these files stay yours on every merge:
 - `docs/template/README.md`
 - `.env.example`
 - `pyproject.toml`
+- `uv.lock`
 
 Write your own README and it survives future merges. Everything else still
 updates normally.

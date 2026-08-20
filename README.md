@@ -30,7 +30,7 @@ bin/template-eject docker ci          # remove several
 | Layer         | Removes                                                      |
 | ------------- | ------------------------------------------------------------ |
 | `docker`      | `Dockerfile`, both compose files, `.dockerignore`             |
-| `persistence` | `alembic/`, `alembic.ini`, `app/db.py`, `app/dependencies.py`, `app/adapter/`, its tests |
+| `persistence` | `alembic/`, `alembic.ini`, `app/db.py`, `app/dependencies.py`, `app/adapter/`, its tests; drops `sqlmodel` and `alembic` from `pyproject.toml` and cuts `DATABASE_URL` and the engine setup from `config.py`, `factory.py`, `.env.example` |
 | `ci`          | `.github/workflows/`, `.github/dependabot.yml`, `.pre-commit-config.yaml` |
 
 The app boots with any combination of these removed. Ejection also appends the
