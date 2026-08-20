@@ -95,7 +95,7 @@ jobs:
 
       - name: Build for target platforms
         if: steps.docker_layer.outputs.present == 'true'
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           platforms: ${{ env.BUILD_PLATFORMS }}
