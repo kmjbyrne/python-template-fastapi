@@ -1,8 +1,9 @@
 """Main factory helpers for FastAPI instances."""
 
+from collections.abc import Callable
 from importlib.util import find_spec
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Response
 from starlette.middleware.cors import CORSMiddleware
 
 from app.config import Settings
@@ -25,18 +26,26 @@ def create_app(settings: Settings) -> FastAPI:
         title=settings.PROJECT_NAME, version=settings.VERSION, description=settings.DESCRIPTION
     )
 
-    @app.get("/health")
-    async def health_check() -> dict:
-        return {"status": True}
+    checks: dict[str, Callable[[], bool]] = {}
 
     # Deferred: app.db is absent once persistence is ejected, so a top-level
     # import would break the app for consumers who removed that layer.
     if find_spec("app.db"):
-        from app.db import create_db_engine, migrate  # noqa: PLC0415
+        from app.db import create_db_engine, migrate, ping  # noqa: PLC0415
 
         engine = create_db_engine(settings.DATABASE_URL)
         migrate(engine)
         app.state.engine = engine
+        checks["database"] = lambda: ping(app.state.engine)
+
+    @app.get("/health")
+    def health_check(response: Response) -> dict:
+        """Report liveness, plus the state of each dependency the app has."""
+        results = {name: check() for name, check in checks.items()}
+        healthy = all(results.values())
+        if not healthy:
+            response.status_code = 503
+        return {"status": healthy, **results}
 
     app.include_router(router)
     app.add_middleware(RequestIdMiddleware)

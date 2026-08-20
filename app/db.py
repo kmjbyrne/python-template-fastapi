@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from alembic.config import Config
-from sqlalchemy import Engine, event
+from sqlalchemy import Engine, event, text
 from sqlmodel import SQLModel, create_engine
 
 from alembic import command
@@ -56,6 +56,17 @@ def drop(engine: Engine) -> None:
     """Drop all table entities."""
     import_all_models()
     SQLModel.metadata.drop_all(engine)
+
+
+def ping(engine: Engine) -> bool:
+    """Return whether the database answers a trivial query."""
+    try:
+        with engine.connect() as connection:
+            connection.execute(text("SELECT 1"))
+    except Exception:
+        logger.exception("Database health check failed")
+        return False
+    return True
 
 
 def migrate(engine: Engine, revision: str = "head") -> None:

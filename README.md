@@ -11,8 +11,10 @@ bin/setup
 uv run python main.py
 ```
 
-The service listens on <http://localhost:8000>. Interactive docs are at `/docs`,
-and `/health` returns `{"status": true}`.
+The service listens on <http://localhost:8000>. Interactive docs are at `/docs`.
+`/health` returns `{"status": true, "database": true}` and answers 503 when a
+dependency check fails, so the compose healthcheck and load balancers see real
+readiness rather than "the process is up".
 
 ## Removing what you do not need
 
