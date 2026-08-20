@@ -5,10 +5,15 @@ import logging
 from pathlib import Path
 from typing import Any
 
+from alembic.config import Config
 from sqlalchemy import Engine, event
 from sqlmodel import SQLModel, create_engine
 
+from alembic import command
+
 logger = logging.getLogger(__name__)
+
+ALEMBIC_INI = Path(__file__).resolve().parent.parent / "alembic.ini"
 
 
 def create_db_engine(database_url: str) -> Engine:
@@ -53,7 +58,13 @@ def drop(engine: Engine) -> None:
     SQLModel.metadata.drop_all(engine)
 
 
-def init(engine: Engine) -> None:
-    """Primary DB creation entrypoint."""
-    import_all_models()
-    SQLModel.metadata.create_all(engine)
+def migrate(engine: Engine, revision: str = "head") -> None:
+    """Bring the database up to ``revision`` using the Alembic migrations.
+
+    Runs over ``engine`` so tests and the app share one connection setup, and
+    so an in-memory SQLite database is migrated in place.
+    """
+    config = Config(str(ALEMBIC_INI))
+    with engine.begin() as connection:
+        config.attributes["connection"] = connection
+        command.upgrade(config, revision)

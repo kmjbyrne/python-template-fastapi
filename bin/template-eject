@@ -27,6 +27,8 @@ docker_paths() {
 }
 
 persistence_paths() {
+    echo "alembic"
+    echo "alembic.ini"
     echo "app/db.py"
     echo "app/dependencies.py"
     echo "app/adapter"
@@ -44,8 +46,8 @@ docker_after() {
 }
 
 persistence_after() {
-    echo "  Persistence removed. Drop sqlmodel from pyproject.toml dependencies and re-run"
-    echo "  'uv sync', then remove DATABASE_URL from app/config.py and .env.example."
+    echo "  Persistence removed. Drop sqlmodel and alembic from pyproject.toml dependencies"
+    echo "  and re-run 'uv sync', then remove DATABASE_URL from app/config.py and .env.example."
 }
 
 ci_after() {

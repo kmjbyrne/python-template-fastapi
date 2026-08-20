@@ -44,7 +44,7 @@ fi
 # Step 3: MyPy (type checking)
 echo ""
 echo "MyPy (type checking)..."
-uv run mypy app/ --exclude alembic/
+uv run mypy app/
 
 echo ""
 echo -e "${GREEN}✓ All checks passed!${NC}"

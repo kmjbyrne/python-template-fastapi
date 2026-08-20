@@ -28,10 +28,10 @@ def create_app(settings: Settings) -> FastAPI:
     # Deferred: app.db is absent once persistence is ejected, so a top-level
     # import would break the app for consumers who removed that layer.
     if find_spec("app.db"):
-        from app.db import create_db_engine, init  # noqa: PLC0415
+        from app.db import create_db_engine, migrate  # noqa: PLC0415
 
         engine = create_db_engine(settings.DATABASE_URL)
-        init(engine)
+        migrate(engine)
         app.state.engine = engine
 
     app.include_router(router)

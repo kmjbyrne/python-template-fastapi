@@ -28,7 +28,7 @@ bin/template-eject docker ci          # remove several
 | Layer         | Removes                                                      |
 | ------------- | ------------------------------------------------------------ |
 | `docker`      | `Dockerfile`, both compose files, `.dockerignore`             |
-| `persistence` | `app/db.py`, `app/dependencies.py`, `app/adapter/`, its tests |
+| `persistence` | `alembic/`, `alembic.ini`, `app/db.py`, `app/dependencies.py`, `app/adapter/`, its tests |
 | `ci`          | `.github/workflows/`, `.github/dependabot.yml`, `.pre-commit-config.yaml` |
 
 The app boots with any combination of these removed. Ejection also appends the
@@ -94,7 +94,7 @@ green after `bin/template-eject docker`.
 app/
   adapter/repository/sqlite/   models (optional, ejectable)
   config.py                    settings, env-driven
-  db.py                        engine and table creation (optional)
+  db.py                        engine factory and migration runner (optional)
   dependencies.py              session dependency (optional)
   factory.py                   create_app
   router.py                    routes
@@ -104,10 +104,29 @@ bin/
   verify                       boot the service and check /health
   template-eject               remove an optional layer
 tests/
+alembic/                       migrations (optional, ejectable)
 ```
 
 Any module placed in `app/adapter/repository/sqlite/` is imported at startup, so
 new models need no registration.
+
+## Database migrations
+
+The schema is managed by Alembic. `create_app` runs `alembic upgrade head`
+against the configured database on every boot, so a fresh checkout, the test
+suite, and a container all start with the current schema and nothing else.
+
+After changing a model:
+
+```shell
+uv run alembic revision --autogenerate -m "add item.price"
+uv run alembic upgrade head
+```
+
+Review the generated file under `alembic/versions/` before committing it.
+Autogenerate does not see every change (renames, server defaults, some
+constraint edits) and SQLite needs batch mode for most `ALTER TABLE` work,
+which `alembic/env.py` already enables.
 
 ## Configuration
 
