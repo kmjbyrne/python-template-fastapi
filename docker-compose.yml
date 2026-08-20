@@ -1,0 +1,20 @@
+services:
+  api:
+    build: .
+    image: ${COMPOSE_PROJECT_NAME:-app}:local
+    ports:
+      - "${PORT:-8000}:8000"
+    environment:
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+    volumes:
+      - instance:/usr/src/app/instance
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://localhost:8000/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+
+volumes:
+  instance:

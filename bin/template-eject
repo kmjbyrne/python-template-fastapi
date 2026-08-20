@@ -1,0 +1,160 @@
+#!/usr/bin/env bash
+
+# Remove an optional layer of the template from this repository.
+#
+# Usage:
+#   bin/template-eject                 # list features and their status
+#   bin/template-eject docker          # remove the Docker layer
+#   bin/template-eject docker ci       # remove several at once
+#   bin/template-eject --dry-run ci    # show what would be removed
+#
+# Each feature deletes its own files and appends those paths to .gitattributes
+# with `merge=ours`, so a later `git merge template/main` does not reinstate
+# them. Ejection is one-way: recover a feature with `git revert` or by pulling
+# the paths back from the template remote.
+
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+
+FEATURES="docker persistence ci"
+
+docker_paths() {
+    echo "Dockerfile"
+    echo "docker-entrypoint.sh"
+    echo "docker-compose.yml"
+    echo "docker-compose.override.yml"
+    echo ".dockerignore"
+}
+
+persistence_paths() {
+    echo "app/db.py"
+    echo "app/dependencies.py"
+    echo "app/adapter"
+    echo "tests/test_persistence.py"
+}
+
+ci_paths() {
+    echo ".github/workflows"
+    echo ".github/dependabot.yml"
+    echo ".pre-commit-config.yaml"
+}
+
+docker_after() {
+    echo "  Docker removed. 'bin/verify' now runs the app directly instead of via compose."
+}
+
+persistence_after() {
+    echo "  Persistence removed. Drop sqlmodel from pyproject.toml dependencies and re-run"
+    echo "  'uv sync', then remove DATABASE_URL from app/config.py and .env.example."
+}
+
+ci_after() {
+    echo "  CI removed. Uninstall the git hooks with 'uv run pre-commit uninstall'."
+}
+
+feature_paths() {
+    "${1}_paths"
+}
+
+is_known() {
+    local candidate="$1"
+    for feature in $FEATURES; do
+        [[ "$feature" == "$candidate" ]] && return 0
+    done
+    return 1
+}
+
+present_paths() {
+    local feature="$1"
+    while read -r path; do
+        if [[ -e "$path" ]]; then
+            echo "$path"
+        fi
+    done < <(feature_paths "$feature")
+    return 0
+}
+
+guard_merge() {
+    local path="$1"
+    local pattern="$path"
+    # A bare directory path matches nothing; git attributes need a glob.
+    if [[ "$2" == "dir" ]]; then
+        pattern="$path/**"
+    fi
+
+    touch .gitattributes
+    if ! grep -qxF "$pattern merge=ours" .gitattributes; then
+        echo "$pattern merge=ours" >> .gitattributes
+    fi
+}
+
+list_features() {
+    echo "Optional template layers:"
+    local feature found
+    for feature in $FEATURES; do
+        found="$(present_paths "$feature" | tr '\n' ' ')"
+        if [[ -n "${found// /}" ]]; then
+            printf '  %-12s present  %s\n' "$feature" "$found"
+        else
+            printf '  %-12s ejected\n' "$feature"
+        fi
+    done
+    echo
+    echo "Remove one with: bin/template-eject <feature>"
+}
+
+DRY_RUN=false
+TARGETS=()
+for arg in "$@"; do
+    case "$arg" in
+        --dry-run) DRY_RUN=true ;;
+        -h|--help) sed -n '3,15p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+        -*) echo "Unknown option: $arg" >&2; exit 1 ;;
+        *) TARGETS+=("$arg") ;;
+    esac
+done
+
+if [[ ${#TARGETS[@]} -eq 0 ]]; then
+    list_features
+    exit 0
+fi
+
+for feature in "${TARGETS[@]}"; do
+    if ! is_known "$feature"; then
+        echo "Unknown feature: $feature" >&2
+        echo "Known features: $FEATURES" >&2
+        exit 1
+    fi
+done
+
+for feature in "${TARGETS[@]}"; do
+    mapfile -t paths < <(present_paths "$feature")
+
+    if [[ ${#paths[@]} -eq 0 ]]; then
+        echo "$feature: already ejected"
+        continue
+    fi
+
+    for path in "${paths[@]}"; do
+        if $DRY_RUN; then
+            echo "$feature: would remove $path"
+        else
+            kind="file"
+            [[ -d "$path" ]] && kind="dir"
+            rm -rf "$path"
+            guard_merge "$path" "$kind"
+            echo "$feature: removed $path"
+        fi
+    done
+
+    $DRY_RUN || "${feature}_after"
+done
+
+if $DRY_RUN; then
+    echo
+    echo "Dry run: nothing was changed."
+else
+    echo
+    echo "Guards appended to .gitattributes so 'git merge template/main' will not restore them."
+fi

@@ -1,1 +1,6 @@
+# Files the template owns but consumers should keep their own copy of.
+# Requires `git config merge.ours.driver true` (done by bin/setup).
+README.md merge=ours
 docs/template/README.md merge=ours
+.env.example merge=ours
+pyproject.toml merge=ours

@@ -1,26 +1,43 @@
 """Application configuration."""
 
+import os
 from functools import lru_cache
 
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+_ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
 
 
 class Settings(BaseSettings):
     """Application settings and configuration.
 
-    Values can be overridden via environment variables or .env file.
+    Real environment variables always win. Below those, env files are read in
+    increasing order of precedence:
 
-    Environment file loading priority:
-    1. .env.{ENVIRONMENT} (e.g., .env.development, .env.test)
+    1. .env (default fallback)
     2. .env.local (git ignored, for local overrides)
-    3. .env (default fallback)
+    3. .env.{ENVIRONMENT} (e.g. .env.development, .env.test)
+
+    Missing files are skipped.
     """
+
+    model_config = SettingsConfigDict(
+        env_file=(".env", ".env.local", f".env.{_ENVIRONMENT}"),
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
 
     # Environment
     ENVIRONMENT: str = "development"  # development, test, staging, production
     PROJECT_NAME: str = "CHANGEME"
     VERSION: str = "0.0.1"
-    DESCRIPTION: str = "A FastAPI application for task management"
+    DESCRIPTION: str = "A FastAPI application"
+
+    # Origins permitted by the CORS middleware
+    CORS_ORIGINS: list[str] = ["http://localhost:3000"]
+
+    # Database (ignored when the persistence layer is ejected)
+    DATABASE_URL: str = "sqlite:///instance/database.db"
 
     # Logging settings
     LOG_LEVEL: str = "INFO"

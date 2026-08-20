@@ -1,0 +1,9 @@
+# Applied automatically by `docker compose up`. Mounts the source for reload and
+# keeps the container in the foreground. CI uses `-f docker-compose.yml` alone to skip it.
+services:
+  api:
+    command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+    volumes:
+      - .:/usr/src/app
+      - instance:/usr/src/app/instance
+    restart: "no"

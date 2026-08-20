@@ -1,10 +1,11 @@
 """Main factory helpers for FastAPI instances."""
 
+from importlib.util import find_spec
+
 from fastapi import FastAPI
 from starlette.middleware.cors import CORSMiddleware
 
 from app.config import Settings
-from app.db import init
 from app.router import router
 
 
@@ -24,14 +25,18 @@ def create_app(settings: Settings) -> FastAPI:
     async def health_check() -> dict:
         return {"status": True}
 
-    init()
+    # Deferred: app.db is absent once persistence is ejected, so a top-level
+    # import would break the app for consumers who removed that layer.
+    if find_spec("app.db"):
+        from app.db import init  # noqa: PLC0415
+
+        init()
 
     app.include_router(router)
-    origins = ["http://localhost:3000", "https://ditloid.org"]
     # noinspection PyTypeChecker
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=origins,
+        allow_origins=settings.CORS_ORIGINS,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],

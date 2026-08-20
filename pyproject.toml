@@ -3,7 +3,7 @@ name = "CHANGEME"
 version = "0.1.0"
 description = "Python FastAPI base template"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.121.1",
     "pydantic-settings>=2.12.0",
@@ -20,7 +20,7 @@ packages = ["app"]
 
 [tool.ruff]
 line-length = 100
-target-version = "py311"
+target-version = "py312"
 exclude = [
     "venv/",
     "alembic/versions/",
@@ -58,8 +58,7 @@ ignore = [
 convention = "pep257"  # or "numpy", "pep257"
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**/*.py" = ["S101", "D100", "D104", "PLR0913", "ARG001"]
-"alembic/env.py" = ["D100"]
+"tests/**/*.py" = ["S101", "D100", "D103", "D104", "PLR0913", "PLR2004", "ARG001", "PLC0415"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["app", "tests"]
@@ -72,7 +71,7 @@ line-ending = "auto"
 docstring-code-format = true
 
 [tool.mypy]
-python_version = "3.11"
+python_version = "3.12"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
@@ -115,6 +114,7 @@ data_file = "build/.coverage"
 dev = [
     "commitizen>=4.10.0",
     "httpie>=3.2.4",
+    "httpx>=0.28.1",
     "mypy>=1.18.2",
     "pre-commit>=4.4.0",
     "pytest>=9.0.0",

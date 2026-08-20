@@ -1,0 +1,92 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    name: Lint and test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      - name: Ruff check
+        run: uv run ruff check .
+
+      - name: Ruff format
+        run: uv run ruff format --check .
+
+      - name: MyPy
+        run: uv run mypy app/
+
+      - name: Tests
+        run: uv run pytest
+
+  boot:
+    name: Service boots
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      - name: Boot the service and hit /health
+        run: bin/verify --local
+
+  docker:
+    name: Image builds and runs
+    runs-on: ubuntu-latest
+    # Skipped automatically once the Docker layer is ejected.
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check for the Docker layer
+        id: docker_layer
+        run: |
+          if [[ -f Dockerfile && -f docker-compose.yml ]]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "Docker layer ejected, skipping."
+          fi
+
+      - name: Set up QEMU
+        if: steps.docker_layer.outputs.present == 'true'
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Buildx
+        if: steps.docker_layer.outputs.present == 'true'
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and verify the container is healthy
+        if: steps.docker_layer.outputs.present == 'true'
+        run: bin/verify --docker
+
+      - name: Build for arm64
+        if: steps.docker_layer.outputs.present == 'true'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/arm64
+          push: false

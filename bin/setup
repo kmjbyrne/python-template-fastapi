@@ -1,8 +1,31 @@
 #! /usr/bin/env bash
 
+# Prepare a repository that has just consumed this template.
+
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+
 echo "Setting up repo template"
-echo "uv.lock" >> .git/info/exclude;
+
+grep -qxF "uv.lock" .git/info/exclude 2>/dev/null || echo "uv.lock" >> .git/info/exclude
+
+# `merge=ours` in .gitattributes is inert unless the driver is registered. It
+# keeps template-owned files, and anything bin/template-eject has removed, from
+# being reinstated by `git merge template/main`.
+git config merge.ours.driver true
+
 # https://docs.astral.sh/uv/concepts/projects/dependencies/
 uv sync
-uv run pre-commit install -t pre-commit
-uv run pre-commit install -t pre-push
+
+if [[ -f .pre-commit-config.yaml ]]; then
+    uv run pre-commit install -t pre-commit
+    uv run pre-commit install -t pre-push
+fi
+
+if [[ ! -f .env && -f .env.example ]]; then
+    cp .env.example .env
+    echo "Created .env from .env.example"
+fi
+
+echo "Setup complete. Run 'bin/template-eject' to see which optional layers you can remove."
