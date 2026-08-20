@@ -46,5 +46,5 @@ typing-inspection==0.4.2
     # via
     #   pydantic
     #   pydantic-settings
-uvicorn==0.38.0
+uvicorn==0.52.3
     # via changeme (pyproject.toml)
