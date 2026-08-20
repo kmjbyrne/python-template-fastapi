@@ -39,14 +39,9 @@ class Settings(BaseSettings):
     # Database (ignored when the persistence layer is ejected)
     DATABASE_URL: str = "sqlite:///instance/database.db"
 
-    # Logging settings
+    # Logging goes to stdout. LOG_JSON emits one JSON object per line.
     LOG_LEVEL: str = "INFO"
-    LOG_DIR: str = "logs"
-    LOG_FILE: str = "app.log"
-    LOG_ROTATION_WHEN: str = "midnight"
-    LOG_ROTATION_INTERVAL: int = 1
-    LOG_BACKUP_COUNT: int = 30
-    LOG_FORMAT: str = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    LOG_JSON: bool = False
 
 
 @lru_cache

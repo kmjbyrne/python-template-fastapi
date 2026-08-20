@@ -53,6 +53,7 @@ select = [
 ignore = [
     "E501", # line too long (handled by ruff format)
     "COM812", # trailing comma - conflicts with formatter
+    "D107", # __init__ docstrings repeat the class docstring
 ]
 
 [tool.ruff.lint.pydocstyle]

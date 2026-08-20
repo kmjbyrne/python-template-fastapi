@@ -6,6 +6,8 @@ from fastapi import FastAPI
 from starlette.middleware.cors import CORSMiddleware
 
 from app.config import Settings
+from app.log import configure_logging
+from app.middleware import RequestIdMiddleware
 from app.router import router
 
 
@@ -17,6 +19,8 @@ def create_app(settings: Settings) -> FastAPI:
     :returns: Configured FastAPI application instance
     :rtype: FastAPI
     """
+    configure_logging(settings)
+
     app = FastAPI(
         title=settings.PROJECT_NAME, version=settings.VERSION, description=settings.DESCRIPTION
     )
@@ -35,7 +39,7 @@ def create_app(settings: Settings) -> FastAPI:
         app.state.engine = engine
 
     app.include_router(router)
-    # noinspection PyTypeChecker
+    app.add_middleware(RequestIdMiddleware)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.CORS_ORIGINS,
