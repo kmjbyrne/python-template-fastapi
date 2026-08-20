@@ -87,7 +87,7 @@ jobs:
 
       - name: Set up Buildx
         if: steps.docker_layer.outputs.present == 'true'
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       - name: Build and verify the container is healthy
         if: steps.docker_layer.outputs.present == 'true'
