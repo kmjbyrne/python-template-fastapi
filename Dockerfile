@@ -32,7 +32,7 @@ RUN uv sync --frozen --no-install-project --no-dev
 COPY . .
 RUN uv sync --frozen --no-dev && \
     mkdir -p instance && \
-    chown -R app:app /usr/src/app
+    chown app:app instance
 
 USER app
 

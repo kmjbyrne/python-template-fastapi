@@ -79,8 +79,12 @@ docker buildx build --platform linux/amd64,linux/arm64 -t app:multi .
 
 CI builds arm64 on every run purely as a portability check.
 
-The container runs as the unprivileged `app` user. `instance/` is the only path
-it can write to; the compose file mounts a volume there.
+The container runs as the unprivileged `app` user. The source tree is owned by
+root and read-only to it; `instance/` is the only path it can write to, and the
+compose file mounts a volume there.
+
+Actions in the workflows are pinned to commit SHAs with the version in a
+trailing comment. Dependabot updates both.
 
 ## CI
 
