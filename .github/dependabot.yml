@@ -16,3 +16,8 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+    ignore:
+      # The Python version is a project decision made in .python-version and
+      # pyproject.toml; bumping the image alone leaves them out of step.
+      - dependency-name: "python"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]

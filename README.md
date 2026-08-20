@@ -65,8 +65,8 @@ layer: it mounts your source and runs uvicorn with `--reload`. CI uses
 ### Architectures
 
 The build is architecture-neutral. `python:3.12-slim` publishes amd64 and arm64
-manifests, uv is installed inside the image so the binary matches the target
-rather than the builder, and every dependency is a pure-Python wheel. Building on
+manifests, uv is copied from its multi-arch image so the binary matches the
+target rather than the builder, and every dependency is a pure-Python wheel. Building on
 an M-series Mac produces an arm64 image, and on an x86 host an amd64 image, with
 no changes.
 
@@ -78,6 +78,9 @@ docker buildx build --platform linux/amd64,linux/arm64 -t app:multi .
 ```
 
 CI builds arm64 on every run purely as a portability check.
+
+The container runs as the unprivileged `app` user. `instance/` is the only path
+it can write to; the compose file mounts a volume there.
 
 ## CI
 
