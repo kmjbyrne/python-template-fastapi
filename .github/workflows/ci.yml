@@ -5,6 +5,16 @@ on:
     branches: [main]
   pull_request:
   workflow_dispatch:
+    inputs:
+      platforms:
+        description: Comma-separated platforms to build, e.g. linux/amd64,linux/arm64
+        required: false
+        type: string
+
+# Override repo-wide with the BUILD_PLATFORMS repository variable, or per run
+# with the workflow_dispatch input above.
+env:
+  BUILD_PLATFORMS: ${{ inputs.platforms || vars.BUILD_PLATFORMS || 'linux/amd64,linux/arm64' }}
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -83,10 +93,10 @@ jobs:
         if: steps.docker_layer.outputs.present == 'true'
         run: bin/verify --docker
 
-      - name: Build for arm64
+      - name: Build for target platforms
         if: steps.docker_layer.outputs.present == 'true'
         uses: docker/build-push-action@v6
         with:
           context: .
-          platforms: linux/arm64
+          platforms: ${{ env.BUILD_PLATFORMS }}
           push: false
