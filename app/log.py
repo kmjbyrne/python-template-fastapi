@@ -59,3 +59,6 @@ def configure_logging(settings: Settings) -> None:
         uvicorn_logger = logging.getLogger(name)
         uvicorn_logger.handlers = []
         uvicorn_logger.propagate = True
+
+    # Alembic announces each autogenerate plugin at INFO on every boot.
+    logging.getLogger("alembic.runtime.plugins").setLevel(logging.WARNING)
