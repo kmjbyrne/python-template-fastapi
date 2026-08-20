@@ -62,6 +62,9 @@ convention = "pep257"  # or "numpy", "pep257"
 [tool.ruff.lint.per-file-ignores]
 "tests/**/*.py" = ["S101", "D100", "D103", "D104", "PLR0913", "PLR2004", "ARG001", "PLC0415"]
 
+[tool.ruff.lint.flake8-bugbear]
+extend-immutable-calls = ["fastapi.Depends", "fastapi.Query", "fastapi.Path", "fastapi.Header", "fastapi.Body"]
+
 [tool.ruff.lint.isort]
 known-first-party = ["app", "tests"]
 section-order = ["future", "standard-library", "third-party", "first-party", "local-folder"]
@@ -104,13 +107,25 @@ addopts = [
     "--strict-markers",
     "--tb=short",
     "--cov=app",
-    "--cov-report=term-missing",
+    "--cov-report=term",
     "--cov-report=html:build/htmlcov",
 ]
 asyncio_mode = "auto"
 
 [tool.coverage.run]
 data_file = "build/.coverage"
+
+[tool.coverage.report]
+fail_under = 80
+show_missing = true
+skip_covered = true
+
+[tool.commitizen]
+name = "cz_conventional_commits"
+version_provider = "pep621"
+tag_format = "v$version"
+update_changelog_on_bump = true
+changelog_file = "CHANGELOG.md"
 
 [dependency-groups]
 dev = [
