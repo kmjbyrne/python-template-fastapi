@@ -27,7 +27,7 @@ bin/template-eject docker ci          # remove several
 
 | Layer         | Removes                                                      |
 | ------------- | ------------------------------------------------------------ |
-| `docker`      | `Dockerfile`, `docker-entrypoint.sh`, both compose files, `.dockerignore` |
+| `docker`      | `Dockerfile`, both compose files, `.dockerignore`             |
 | `persistence` | `app/db.py`, `app/dependencies.py`, `app/adapter/`, its tests |
 | `ci`          | `.github/workflows/`, `.github/dependabot.yml`, `.pre-commit-config.yaml` |
 
@@ -112,7 +112,7 @@ new models need no registration.
 ## Configuration
 
 Settings come from environment variables or a `.env` file; see `.env.example`.
-`bin/setup` creates `.env` if it is missing. `ENV_FILE=production` loads
+`bin/setup` creates `.env` if it is missing. `ENVIRONMENT=production` loads
 `.env.production`.
 
 ## Consuming this template

@@ -1,7 +1,7 @@
 """Main router entrypoint.
 
-Replace the example routes below with your own. Routers that need a database
-session depend on ``app.dependencies.get_session``; see ``app/example.py``.
+Replace the example route below with your own. Routes that need a database
+session take ``Depends(app.dependencies.get_session)``.
 """
 
 from fastapi import APIRouter

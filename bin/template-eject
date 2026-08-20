@@ -21,7 +21,6 @@ FEATURES="docker persistence ci"
 
 docker_paths() {
     echo "Dockerfile"
-    echo "docker-entrypoint.sh"
     echo "docker-compose.yml"
     echo "docker-compose.override.yml"
     echo ".dockerignore"
