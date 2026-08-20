@@ -25,7 +25,7 @@ pydantic-core==2.48.0
     # via pydantic
 pydantic-settings==2.15.0
     # via changeme (pyproject.toml)
-python-dotenv==1.2.1
+python-dotenv==1.2.2
     # via pydantic-settings
 sqlalchemy==2.0.44
     # via sqlmodel
