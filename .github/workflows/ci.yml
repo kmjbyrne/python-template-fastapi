@@ -83,7 +83,7 @@ jobs:
 
       - name: Set up QEMU
         if: steps.docker_layer.outputs.present == 'true'
-        uses: docker/setup-qemu-action@v3
+        uses: docker/setup-qemu-action@v4
 
       - name: Set up Buildx
         if: steps.docker_layer.outputs.present == 'true'
