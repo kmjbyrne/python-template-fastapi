@@ -3,7 +3,7 @@
 # python:3.12-slim publishes amd64 and arm64 manifests, so the base resolves for
 # both. Build other architectures with:
 #   docker buildx build --platform linux/amd64,linux/arm64 -t app:local .
-FROM python:3.12-slim
+FROM python:3.14-slim
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
