@@ -8,7 +8,7 @@ anyio==4.12.0
     # via starlette
 click==8.3.1
     # via uvicorn
-fastapi==0.123.9
+fastapi==0.141.1
     # via changeme (pyproject.toml)
 greenlet==3.3.0
     # via sqlalchemy
