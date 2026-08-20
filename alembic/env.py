@@ -8,12 +8,12 @@ Runs in two modes:
   over through ``config.attributes["connection"]``.
 """
 
-from sqlalchemy import Connection, engine_from_config, pool
+from sqlalchemy import Connection
 from sqlmodel import SQLModel
 
 from alembic import context
 from app.config import get_settings
-from app.db import import_all_models
+from app.db import create_db_engine, import_all_models
 
 config = context.config
 
@@ -53,12 +53,9 @@ def run_migrations_online() -> None:
             context.run_migrations()
         return
 
-    config.set_main_option("sqlalchemy.url", get_settings().DATABASE_URL)
-    engine = engine_from_config(
-        config.get_section(config.config_ini_section, {}),
-        prefix="sqlalchemy.",
-        poolclass=pool.NullPool,
-    )
+    # Built directly rather than via set_main_option so a "%" in the URL (an
+    # escaped password, say) is not run through configparser interpolation.
+    engine = create_db_engine(get_settings().DATABASE_URL)
     with engine.connect() as fresh_connection:
         _configure(fresh_connection)
         with context.begin_transaction():
