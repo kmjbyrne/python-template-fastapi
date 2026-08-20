@@ -10,6 +10,33 @@ and this project adheres to
 
 ### Added
 
+- Alembic migrations, run by `create_app` at boot; `create_all` is gone
+- Stdout logging configured by `create_app`, with `LOG_JSON` for structured
+  output and `X-Request-ID` on every request and log line
+- `/health` checks the database and answers 503 when a check fails
+- Release workflow: a `v*` tag builds the multi-arch image, pushes it to GHCR,
+  and publishes a GitHub release
+- Ruff hooks in pre-commit and a coverage floor of 80%
+
+### Changed
+
+- The engine is built inside `create_app` and stored on `app.state`; tests
+  no longer reload modules
+- The container runs as the unprivileged `app` user and copies a pinned uv
+  from its multi-arch image
+- `bin/template-eject persistence` removes the dependencies and settings
+  itself; an ejected copy passes lint, types, tests, and `bin/verify`
+- `uv.lock` is tracked and guarded with `merge=ours` instead of hidden in
+  `.git/info/exclude`
+
+### Removed
+
+- `requirements.txt`; `uv.lock` is the only lockfile
+- File-based log handlers and the `LOG_DIR`, `LOG_FILE`, `LOG_ROTATION_*`,
+  `LOG_BACKUP_COUNT`, `LOG_FORMAT` settings
+
+### Earlier
+
 - `bin/template-eject` removes optional layers (`docker`, `persistence`, `ci`)
   and guards them in `.gitattributes` against later merges
 - `bin/verify` boots the service and checks `/health`, via compose or uvicorn
