@@ -31,7 +31,7 @@ sqlalchemy==2.0.44
     # via sqlmodel
 sqlmodel==0.0.27
     # via changeme (pyproject.toml)
-starlette==0.50.0
+starlette==1.3.1
     # via fastapi
 typing-extensions==4.15.0
     # via
