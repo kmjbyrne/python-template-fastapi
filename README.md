@@ -93,6 +93,22 @@ it can write to; the compose file mounts a volume there.
 The docker job detects an ejected Docker layer and skips itself, so CI stays
 green after `bin/template-eject docker`.
 
+## Releasing
+
+Versions live in `pyproject.toml` and are managed by commitizen from the
+conventional commit history:
+
+```shell
+uv run cz bump          # bumps the version, updates CHANGELOG.md, tags vX.Y.Z
+git push --follow-tags
+```
+
+Pushing a `v*` tag runs `.github/workflows/release.yml`, which builds the image
+for every platform in `BUILD_PLATFORMS`, pushes it to
+`ghcr.io/<owner>/<repo>` tagged `X.Y.Z`, `X.Y`, and `latest`, and publishes a
+GitHub release with generated notes. Without the Docker layer it still creates
+the release.
+
 ## Layout
 
 ```text
