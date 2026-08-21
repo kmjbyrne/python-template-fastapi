@@ -27,11 +27,11 @@ bin/template-eject docker             # remove
 bin/template-eject docker ci          # remove several
 ```
 
-| Layer         | Removes                                                      |
-| ------------- | ------------------------------------------------------------ |
-| `docker`      | `Dockerfile`, both compose files, `.dockerignore`             |
+| Layer         | Removes                                                                                                                                                                                                                                    |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `docker`      | `Dockerfile`, both compose files, `.dockerignore`                                                                                                                                                                                          |
 | `persistence` | `alembic/`, `alembic.ini`, `app/db.py`, `app/dependencies.py`, `app/adapter/`, its tests; drops `sqlmodel` and `alembic` from `pyproject.toml` and cuts `DATABASE_URL` and the engine setup from `config.py`, `factory.py`, `.env.example` |
-| `ci`          | `.github/workflows/`, `.github/dependabot.yml`, `.pre-commit-config.yaml` |
+| `ci`          | `.github/workflows/`, `.github/dependabot.yml`, `.pre-commit-config.yaml`                                                                                                                                                                  |
 
 The app boots with any combination of these removed. Ejection also appends the
 removed paths to `.gitattributes` with `merge=ours`, so a later
@@ -66,9 +66,9 @@ layer: it mounts your source and runs uvicorn with `--reload`. CI uses
 
 The build is architecture-neutral. `python:3.12-slim` publishes amd64 and arm64
 manifests, uv is copied from its multi-arch image so the binary matches the
-target rather than the builder, and every dependency is a pure-Python wheel. Building on
-an M-series Mac produces an arm64 image, and on an x86 host an amd64 image, with
-no changes.
+target rather than the builder, and every dependency is a pure-Python wheel.
+Building on an M-series Mac produces an arm64 image, and on an x86 host an amd64
+image, with no changes.
 
 Nothing defaults to arm64. To build one or both explicitly:
 
@@ -77,7 +77,7 @@ docker buildx build --platform linux/arm64 -t app:arm64 .
 docker buildx build --platform linux/amd64,linux/arm64 -t app:multi .
 ```
 
-CI builds arm64 on every run purely as a portability check.
+The release workflow builds every platform in `BUILD_PLATFORMS`.
 
 The container runs as the unprivileged `app` user. The source tree is owned by
 root and read-only to it; `instance/` is the only path it can write to, and the
@@ -88,14 +88,8 @@ trailing comment. Dependabot updates both.
 
 ## CI
 
-`.github/workflows/ci.yml` runs three jobs:
-
-- **quality** — ruff check, ruff format, mypy, pytest
-- **boot** — starts the service and hits `/health`
-- **docker** — builds the image, waits for the compose healthcheck, then builds arm64
-
-The docker job detects an ejected Docker layer and skips itself, so CI stays
-green after `bin/template-eject docker`.
+`.github/workflows/ci.yml` runs two steps: `bin/lint` and `pytest`. The image
+build and boot check (`bin/verify`) are left to run by hand and at release time.
 
 ## Releasing
 
@@ -108,10 +102,9 @@ git push --follow-tags
 ```
 
 Pushing a `v*` tag runs `.github/workflows/release.yml`, which builds the image
-for every platform in `BUILD_PLATFORMS`, pushes it to
-`ghcr.io/<owner>/<repo>` tagged `X.Y.Z`, `X.Y`, and `latest`, and publishes a
-GitHub release with generated notes. Without the Docker layer it still creates
-the release.
+for every platform in `BUILD_PLATFORMS`, pushes it to `ghcr.io/<owner>/<repo>`
+tagged `X.Y.Z`, `X.Y`, and `latest`, and publishes a GitHub release with
+generated notes. Without the Docker layer it still creates the release.
 
 ## Layout
 
@@ -150,8 +143,8 @@ uv run alembic upgrade head
 
 Review the generated file under `alembic/versions/` before committing it.
 Autogenerate does not see every change (renames, server defaults, some
-constraint edits) and SQLite needs batch mode for most `ALTER TABLE` work,
-which `alembic/env.py` already enables.
+constraint edits) and SQLite needs batch mode for most `ALTER TABLE` work, which
+`alembic/env.py` already enables.
 
 ## Configuration
 

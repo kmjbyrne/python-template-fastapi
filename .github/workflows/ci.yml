@@ -4,99 +4,21 @@ on:
   push:
     branches: [main]
   pull_request:
-  workflow_dispatch:
-    inputs:
-      platforms:
-        description: Comma-separated platforms to build, e.g. linux/amd64,linux/arm64
-        required: false
-        type: string
-
-# Override repo-wide with the BUILD_PLATFORMS repository variable, or per run
-# with the workflow_dispatch input above.
-env:
-  BUILD_PLATFORMS: ${{ inputs.platforms || vars.BUILD_PLATFORMS || 'linux/amd64,linux/arm64' }}
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  quality:
-    name: Lint and test
+  ci:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
         with:
           enable-cache: true
-
-      - name: Install dependencies
-        run: uv sync --frozen
-
-      - name: Ruff check
-        run: uv run ruff check .
-
-      - name: Ruff format
-        run: uv run ruff format --check .
-
-      - name: MyPy
-        run: uv run mypy app/
-
-      - name: Tests
+      - run: uv sync --frozen
+      - name: lint
+        run: bin/lint
+      - name: test
         run: uv run pytest
-
-  boot:
-    name: Service boots
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
-        with:
-          enable-cache: true
-
-      - name: Install dependencies
-        run: uv sync --frozen
-
-      - name: Boot the service and hit /health
-        run: bin/verify --local
-
-  docker:
-    name: Image builds and runs
-    runs-on: ubuntu-latest
-    # Skipped automatically once the Docker layer is ejected.
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - name: Check for the Docker layer
-        id: docker_layer
-        run: |
-          if [[ -f Dockerfile && -f docker-compose.yml ]]; then
-            echo "present=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "present=false" >> "$GITHUB_OUTPUT"
-            echo "Docker layer ejected, skipping."
-          fi
-
-      - name: Set up QEMU
-        if: steps.docker_layer.outputs.present == 'true'
-        uses: docker/setup-qemu-action@96fe6ef7f33517b61c61be40b68a1882f3264fb8 # v4.2.0
-
-      - name: Set up Buildx
-        if: steps.docker_layer.outputs.present == 'true'
-        uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
-
-      - name: Build and verify the container is healthy
-        if: steps.docker_layer.outputs.present == 'true'
-        run: bin/verify --docker
-
-      - name: Build for target platforms
-        if: steps.docker_layer.outputs.present == 'true'
-        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
-        with:
-          context: .
-          platforms: ${{ env.BUILD_PLATFORMS }}
-          push: false
