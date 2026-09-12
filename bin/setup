@@ -18,7 +18,11 @@ echo "Setting up repo template"
 git config merge.ours.driver true
 
 # https://docs.astral.sh/uv/concepts/projects/dependencies/
-uv sync
+#
+# --all-groups, because a bare `uv sync` installs the default group alone and
+# the next thing this script runs is pre-commit, which lives in the dev group.
+# Setting up a checkout is exactly when you want the tools that develop it.
+uv sync --all-groups
 
 if [[ -f .pre-commit-config.yaml ]]; then
     uv run pre-commit install -t pre-commit
