@@ -17,6 +17,27 @@ echo "Setting up repo template"
 # being reinstated by `git merge template/main`.
 git config merge.ours.driver true
 
+# A virtualenv records an absolute path, in its own pyvenv.cfg and in the
+# shebang of every console script it installs. Move or rename the checkout and
+# all of them point somewhere that no longer exists.
+#
+# It fails in a way that reads as nonsense: `ls .venv/bin` shows pre-commit
+# sitting there, and running it says "No such file or directory", because the
+# missing file is the interpreter in its shebang and not the script. `uv sync`
+# does not help -- it checks which packages are installed, finds them all
+# present, reports "Audited" and rewrites nothing.
+#
+# So it is checked here and the environment is rebuilt, which is cheap: uv
+# installs from its cache in seconds.
+if [[ -f .venv/pyvenv.cfg ]]; then
+    recorded_home="$(awk -F' = ' '/^home/ {print $2}' .venv/pyvenv.cfg)"
+    if [[ -n "$recorded_home" && ! -d "$recorded_home" ]]; then
+        echo "The virtualenv points at $recorded_home, which is gone."
+        echo "Rebuilding .venv (the checkout has probably moved)."
+        rm -rf .venv
+    fi
+fi
+
 # https://docs.astral.sh/uv/concepts/projects/dependencies/
 #
 # --all-groups, because a bare `uv sync` installs the default group alone and
