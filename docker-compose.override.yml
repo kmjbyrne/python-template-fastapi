@@ -5,5 +5,19 @@ services:
     command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
     volumes:
       - .:/usr/src/app
-      - instance:/usr/src/app/instance
+      # A bind mount for development, deliberately overriding the named volume
+      # the base file puts here. The database is then a file in ./instance that
+      # can be inspected, deleted and backed up without a docker command, and
+      # it belongs to the checkout rather than to the daemon.
+      #
+      # The named volume is kept in the base file, which is what deployments
+      # and CI use: there, the database should outlive the container and
+      # nothing is meant to reach in and read it.
+      #
+      # It is overridden here because docker names a volume after the compose
+      # project, which defaults to the directory name. Two projects that both
+      # declare `instance` therefore share one volume, and a service can boot
+      # onto another project's database -- which fails as an alembic error
+      # about a revision it has never heard of, a long way from the cause.
+      - ./instance:/usr/src/app/instance
     restart: "no"

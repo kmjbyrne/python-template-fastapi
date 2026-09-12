@@ -1,3 +1,17 @@
+# The compose project name. Set it, do not let it default.
+#
+# Docker derives the project name from the directory when it is unset, and
+# names every volume `<project>_<volume>`. Two checkouts that both declare a
+# volume called `instance` therefore share one, and a service can boot onto
+# another project's database: alembic then refuses to migrate against a
+# revision it has never heard of, a long way from the cause.
+#
+# Renaming the directory also renames the volume, which silently hands the
+# service an empty database and looks like data loss.
+#
+# Overridable so a stack can mount this file under its own name.
+name: ${COMPOSE_PROJECT_NAME:-app}
+
 services:
   api:
     build: .
@@ -7,6 +21,9 @@ services:
     environment:
       ENVIRONMENT: ${ENVIRONMENT:-development}
     volumes:
+      # A named volume, so the database outlives the container. The
+      # development override replaces this with a bind mount onto ./instance,
+      # where the file can be read and deleted without a docker command.
       - instance:/usr/src/app/instance
     healthcheck:
       test: ["CMD", "curl", "--fail", "--silent", "http://localhost:8000/health"]
