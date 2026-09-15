@@ -1,0 +1,3 @@
+[submodule "vendor/python-easy-oidc"]
+	path = vendor/python-easy-oidc
+	url = git@github.com-kmjbyrne:kmjbyrne/python-easy-oidc.git

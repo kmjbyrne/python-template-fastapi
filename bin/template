@@ -21,7 +21,7 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-FEATURES="docker persistence ci release claude"
+FEATURES="docker persistence ci release claude oidc"
 TEMPLATE_REMOTE="template"
 TEMPLATE_BRANCH="main"
 
@@ -56,6 +56,10 @@ claude_paths() {
     echo ".github/workflows/claude-code-review.yml"
 }
 
+oidc_paths() {
+    :
+}
+
 docker_after_eject() {
     echo "  Docker removed. 'bin/verify' now runs the app directly instead of via compose."
 }
@@ -81,6 +85,17 @@ claude_after_eject() {
     echo "  Claude Code workflows removed."
 }
 
+oidc_after_eject() {
+    uv remove --quiet oauth2 2>/dev/null || true
+    echo "  OIDC removed. oauth2 dropped from pyproject.toml."
+    echo
+    echo "  Clean up manually:"
+    echo "    - Remove the configure_oidc call from app/factory.py"
+    echo "    - Remove OIDCSettings from app/config.py"
+    echo "    - Remove OIDC_* variables from .env / .env.example"
+    echo "    - Remove any Depends(current_user) or Depends(require_role(...)) from routes"
+}
+
 docker_after_inject() {
     echo "  Docker layer installed. Run 'docker compose up --build' to use it."
 }
@@ -100,6 +115,57 @@ release_after_inject() {
 
 claude_after_inject() {
     echo "  Claude Code workflows installed. Set CLAUDE_CODE_OAUTH_TOKEN in repo secrets."
+}
+
+oidc_after_inject() {
+    if [[ -d vendor/python-easy-oidc ]]; then
+        uv add --quiet "./vendor/python-easy-oidc[fastapi]"
+    else
+        echo "  warning: vendor/python-easy-oidc not found. Install the SDK manually." >&2
+    fi
+    echo "  OIDC dependency installed."
+    echo
+    echo "  Wire it into your app:"
+    echo
+    echo "  1. Mix OIDCSettings into app/config.py:"
+    echo
+    echo "     from oauth2.contrib.fastapi import OIDCSettings"
+    echo
+    echo "     class Settings(OIDCSettings, BaseSettings):"
+    echo "         ..."
+    echo
+    echo "  2. Call configure in app/factory.py:"
+    echo
+    echo "     from oauth2.contrib.fastapi import configure as configure_oidc"
+    echo "     configure_oidc(app, settings)"
+    echo
+    echo "  3. Add OIDC settings to .env.example:"
+    echo
+    echo "     OIDC_ISSUER="
+    echo "     OIDC_AUDIENCE="
+    echo "     OIDC_CLIENT_ID="
+    echo "     OIDC_CLIENT_SECRET="
+    echo
+    echo "  4. Protect routes with:"
+    echo
+    echo "     from oauth2.contrib.fastapi import current_user, require_role"
+    echo "     from oauth2.principal import Principal"
+    echo
+    echo "  5. For local dev, create a local.py (git-ignored) to bypass auth:"
+    echo
+    echo "     from main import app"
+    echo "     from oauth2.contrib.fastapi import current_user"
+    echo "     from oauth2.principal import Principal"
+    echo
+    echo "     app.dependency_overrides[current_user] = lambda: Principal("
+    echo "         subject=\"dev\", issuer=\"local\""
+    echo "     )"
+    echo
+    echo "     Run with: uvicorn local:app --reload"
+}
+
+oidc_dry_run_inject() {
+    echo "oidc: would add oauth2[fastapi] from vendor/python-easy-oidc"
 }
 
 feature_paths() {
@@ -122,6 +188,19 @@ present_paths() {
         fi
     done < <(feature_paths "$feature")
     return 0
+}
+
+is_present() {
+    local feature="$1"
+    if type "${feature}_is_present" &>/dev/null; then
+        "${feature}_is_present"
+    else
+        [[ -n "$(present_paths "$feature" | tr '\n' ' ' | tr -d ' ')" ]]
+    fi
+}
+
+oidc_is_present() {
+    grep -q 'oauth2' pyproject.toml 2>/dev/null
 }
 
 guard_merge() {
@@ -191,13 +270,14 @@ inject_path_from_remote() {
 
 list_features() {
     echo "Optional template layers:"
-    local feature found
+    local feature
     for feature in $FEATURES; do
-        found="$(present_paths "$feature" | tr '\n' ' ')"
-        if [[ -n "${found// /}" ]]; then
-            printf '  %-14s present  %s\n' "$feature" "$found"
+        if is_present "$feature"; then
+            local found
+            found="$(present_paths "$feature" | tr '\n' ' ')"
+            printf '  %-14s present  %s\n' "$feature" "${found:-(dependency)}"
         else
-            printf '  %-14s ejected\n' "$feature"
+            printf '  %-14s not installed\n' "$feature"
         fi
     done
     echo
@@ -231,27 +311,29 @@ do_eject() {
     done
 
     for feature in "${targets[@]}"; do
+        if ! is_present "$feature"; then
+            echo "$feature: not installed"
+            continue
+        fi
+
         local paths=()
         while IFS= read -r p; do
             [[ -n "$p" ]] && paths+=("$p")
         done < <(present_paths "$feature")
 
-        if [[ ${#paths[@]} -eq 0 ]]; then
-            echo "$feature: already ejected"
-            continue
+        if [[ ${#paths[@]} -gt 0 ]]; then
+            for path in "${paths[@]}"; do
+                if $dry_run; then
+                    echo "$feature: would remove $path"
+                else
+                    kind="file"
+                    [[ -d "$path" ]] && kind="dir"
+                    rm -rf "$path"
+                    guard_merge "$path" "$kind"
+                    echo "$feature: removed $path"
+                fi
+            done
         fi
-
-        for path in "${paths[@]}"; do
-            if $dry_run; then
-                echo "$feature: would remove $path"
-            else
-                kind="file"
-                [[ -d "$path" ]] && kind="dir"
-                rm -rf "$path"
-                guard_merge "$path" "$kind"
-                echo "$feature: removed $path"
-            fi
-        done
 
         $dry_run || "${feature}_after_eject"
     done
@@ -289,13 +371,20 @@ do_inject() {
         fi
     done
 
-    $dry_run || require_template_remote
+    if ! $dry_run; then
+        local needs_remote=false
+        for feature in "${targets[@]}"; do
+            if [[ -n "$(feature_paths "$feature")" ]]; then
+                needs_remote=true
+                break
+            fi
+        done
+        $needs_remote && require_template_remote
+    fi
 
     for feature in "${targets[@]}"; do
-        local already_present
-        already_present="$(present_paths "$feature" | tr '\n' ' ')"
-        if [[ -n "${already_present// /}" ]]; then
-            echo "$feature: already present ($already_present). Eject first to reinstall." >&2
+        if is_present "$feature"; then
+            echo "$feature: already installed. Eject first to reinstall." >&2
             continue
         fi
 
@@ -313,7 +402,13 @@ do_inject() {
             fi
         done < <(feature_paths "$feature")
 
-        $dry_run || "${feature}_after_inject"
+        if $dry_run; then
+            if type "${feature}_dry_run_inject" &>/dev/null; then
+                "${feature}_dry_run_inject"
+            fi
+        else
+            "${feature}_after_inject"
+        fi
     done
 
     if $dry_run; then
