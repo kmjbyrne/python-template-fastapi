@@ -1,72 +1,61 @@
-# Consuming the FastAPI template
+# FastAPI Template Overview
 
-## First use
+This template provides a production-ready FastAPI scaffold. Every piece is
+designed to work together, but each optional layer can be ejected independently
+with `bin/template eject`.
 
-Run this inside the new repository:
+## Application Factory
 
-```shell
-git remote add template git@github.com-kmjbyrne:kmjbyrne/python-template-fastapi.git
-git fetch template
-git merge template/main --allow-unrelated-histories
-bin/setup
-```
+The app is built through `app/factory.py:create_app()`. It wires up the router,
+middleware, CORS, and health checks in one place. Settings come from
+`pydantic-settings`, which reads `.env` files in precedence order and lets real
+environment variables win.
 
-Then remove the layers you do not want:
+`pyproject.toml` and `.env.example` carry `CHANGEME` markers. Both are guarded
+with `merge=ours`, so your edits survive template merges.
 
-```shell
-bin/template-eject            # see what is optional
-bin/template-eject docker
-```
+## Health Check
 
-## Pulling later template updates
+`/health` reports liveness plus the state of each registered dependency. The
+persistence layer registers a database ping. When any check fails the endpoint
+returns 503, so compose health checks and load balancers see real readiness.
 
-```shell
-git fetch template
-git merge template/main
-```
+## Structured Logging
 
-To stop tracking the template entirely:
+All output goes to stdout. `RequestIdMiddleware` assigns or propagates a
+`X-Request-ID` header on every request and attaches it to log records via a
+context variable. Set `LOG_JSON=true` for one JSON object per line, or leave it
+off for human-readable text. Uvicorn's own handlers are stripped, so everything
+flows through the shared format.
 
-```shell
-git remote remove template
-```
+## Persistence (Ejectable)
 
-## Keeping your own files
+SQLModel models live in `app/adapter/repository/sqlite/`. Alembic manages
+migrations and runs `upgrade head` on every boot, so a fresh checkout, the test
+suite, and a container all start with the current schema. The session dependency
+is in `app/dependencies.py`.
 
-`bin/setup` runs `git config merge.ours.driver true`. This matters. `merge=ours`
-in `.gitattributes` is inert without it: git ignores the attribute and you get a
-conflict on every file the template also changed.
+## Docker (Ejectable)
 
-With the driver registered, these files stay yours on every merge:
+The `Dockerfile` builds a multi-arch image (amd64 and arm64) that runs as an
+unprivileged `app` user. `docker-compose.override.yml` is the dev layer: it
+mounts source and runs with `--reload`. CI uses `docker-compose.yml` alone to
+test the image as it would ship.
 
-- `README.md`
-- `docs/template/README.md`
-- `.env.example`
-- `pyproject.toml`
-- `uv.lock`
+## CI (Ejectable)
 
-Write your own README and it survives future merges. Everything else still
-updates normally.
+`.github/workflows/ci.yml` runs linting (`bin/lint`) and tests (`pytest`).
+Dependabot keeps Python, GitHub Actions, and Docker dependencies current.
+Pre-commit hooks enforce the same checks locally.
 
-`bin/template-eject` adds the paths it removes to the same list, so ejected
-layers do not reappear.
+## Release (Ejectable)
 
-### Limits
+Commitizen manages versioning from the conventional commit history. Pushing a
+`v*` tag triggers the release workflow, which builds and pushes a multi-arch
+image to GHCR and creates a GitHub release with generated notes.
 
-`merge=ours` resolves a file both sides changed. It does not block a file that is
-new to your repository. If a future template version adds a file you have never
-had, the merge brings it in; delete it and it is guarded from then on.
+## Claude Code (Ejectable)
 
-To protect another path, add it to `.gitattributes`:
-
-```gitattributes
-path/to/file merge=ours
-directory/** merge=ours
-```
-
-Directories need the `/**` glob. A bare directory path matches nothing.
-
-## Renaming the project
-
-`pyproject.toml` and `.env.example` both carry `CHANGEME`. Both are guarded, so
-edit them once and merges will not revert your names.
+Two workflows: `claude.yml` responds to `@claude` mentions in issues and PR
+comments, and `claude-code-review.yml` runs an automated code review on every
+pull request. Both require `CLAUDE_CODE_OAUTH_TOKEN` in repo secrets.

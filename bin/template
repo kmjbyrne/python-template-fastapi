@@ -1,0 +1,349 @@
+#!/usr/bin/env bash
+
+# Manage optional layers of the template in this repository.
+#
+# Usage:
+#   bin/template                           # list features and their status
+#   bin/template eject docker              # remove the Docker layer
+#   bin/template eject docker ci           # remove several at once
+#   bin/template eject --dry-run ci        # show what would be removed
+#   bin/template inject release            # install the release workflow from the template
+#   bin/template inject --dry-run claude   # show what would be installed
+#
+# Each feature has a set of paths. Ejecting deletes them and appends the
+# paths to .gitattributes with `merge=ours`, so a later
+# `git merge template/main` does not reinstate them. Injecting pulls the
+# paths from the template remote and writes them into the working tree.
+#
+# Ejection is reversible with `git revert` or by running inject.
+
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+
+FEATURES="docker persistence ci release claude"
+TEMPLATE_REMOTE="template"
+TEMPLATE_BRANCH="main"
+
+docker_paths() {
+    echo "Dockerfile"
+    echo "docker-compose.yml"
+    echo "docker-compose.override.yml"
+    echo ".dockerignore"
+}
+
+persistence_paths() {
+    echo "alembic"
+    echo "alembic.ini"
+    echo "app/db.py"
+    echo "app/dependencies.py"
+    echo "app/adapter"
+    echo "tests/test_persistence.py"
+}
+
+ci_paths() {
+    echo ".github/workflows/ci.yml"
+    echo ".github/dependabot.yml"
+    echo ".pre-commit-config.yaml"
+}
+
+release_paths() {
+    echo ".github/workflows/release.yml"
+}
+
+claude_paths() {
+    echo ".github/workflows/claude.yml"
+    echo ".github/workflows/claude-code-review.yml"
+}
+
+docker_after_eject() {
+    echo "  Docker removed. 'bin/verify' now runs the app directly instead of via compose."
+}
+
+persistence_after_eject() {
+    uv remove --quiet sqlmodel alembic
+    sed -i.bak '/# persistence:begin/,/# persistence:end/d' app/config.py app/factory.py .env.example
+    rm -f app/config.py.bak app/factory.py.bak .env.example.bak
+    uv run --quiet ruff format --quiet app/
+    echo "  Persistence removed. sqlmodel and alembic dropped from pyproject.toml and uv.lock;"
+    echo "  DATABASE_URL and the engine setup cut from app/config.py, app/factory.py, .env.example."
+}
+
+ci_after_eject() {
+    echo "  CI removed. Uninstall the git hooks with 'uv run pre-commit uninstall'."
+}
+
+release_after_eject() {
+    echo "  Release workflow removed."
+}
+
+claude_after_eject() {
+    echo "  Claude Code workflows removed."
+}
+
+docker_after_inject() {
+    echo "  Docker layer installed. Run 'docker compose up --build' to use it."
+}
+
+persistence_after_inject() {
+    uv add --quiet sqlmodel alembic
+    echo "  Persistence installed. Run 'uv sync' then check app/config.py for DATABASE_URL."
+}
+
+ci_after_inject() {
+    echo "  CI workflow installed. Set up the git hooks with 'uv run pre-commit install'."
+}
+
+release_after_inject() {
+    echo "  Release workflow installed. Tag with 'uv run cz bump && git push --follow-tags'."
+}
+
+claude_after_inject() {
+    echo "  Claude Code workflows installed. Set CLAUDE_CODE_OAUTH_TOKEN in repo secrets."
+}
+
+feature_paths() {
+    "${1}_paths"
+}
+
+is_known() {
+    local candidate="$1"
+    for feature in $FEATURES; do
+        [[ "$feature" == "$candidate" ]] && return 0
+    done
+    return 1
+}
+
+present_paths() {
+    local feature="$1"
+    while read -r path; do
+        if [[ -e "$path" ]]; then
+            echo "$path"
+        fi
+    done < <(feature_paths "$feature")
+    return 0
+}
+
+guard_merge() {
+    local path="$1"
+    local pattern="$path"
+    if [[ "$2" == "dir" ]]; then
+        pattern="$path/**"
+    fi
+
+    touch .gitattributes
+    if ! grep -qxF "$pattern merge=ours" .gitattributes; then
+        echo "$pattern merge=ours" >> .gitattributes
+    fi
+}
+
+unguard_merge() {
+    local path="$1"
+    local pattern="$path"
+    if [[ "$2" == "dir" ]]; then
+        pattern="$path/**"
+    fi
+
+    [[ -f .gitattributes ]] || return 0
+    local escaped
+    escaped=$(printf '%s\n' "$pattern merge=ours" | sed 's/[[\.*^$()+?{|]/\\&/g')
+    sed -i.bak "/^${escaped}$/d" .gitattributes
+    rm -f .gitattributes.bak
+}
+
+require_template_remote() {
+    if ! git remote get-url "$TEMPLATE_REMOTE" &>/dev/null; then
+        echo "Template remote '$TEMPLATE_REMOTE' not found." >&2
+        echo "Add it with:" >&2
+        echo "  git remote add $TEMPLATE_REMOTE <template-repo-url>" >&2
+        exit 1
+    fi
+    git fetch --quiet "$TEMPLATE_REMOTE" "$TEMPLATE_BRANCH" 2>/dev/null || {
+        echo "Failed to fetch $TEMPLATE_REMOTE/$TEMPLATE_BRANCH." >&2
+        exit 1
+    }
+}
+
+inject_path_from_remote() {
+    local path="$1"
+    local ref="$TEMPLATE_REMOTE/$TEMPLATE_BRANCH"
+
+    if git cat-file -t "$ref:$path" &>/dev/null; then
+        local obj_type
+        obj_type=$(git cat-file -t "$ref:$path")
+        if [[ "$obj_type" == "tree" ]]; then
+            local entries
+            entries=$(git ls-tree -r --name-only "$ref" -- "$path")
+            while IFS= read -r file; do
+                mkdir -p "$(dirname "$file")"
+                git show "$ref:$file" > "$file"
+            done <<< "$entries"
+        else
+            mkdir -p "$(dirname "$path")"
+            git show "$ref:$path" > "$path"
+        fi
+        return 0
+    else
+        echo "  warning: $path not found in $ref" >&2
+        return 1
+    fi
+}
+
+list_features() {
+    echo "Optional template layers:"
+    local feature found
+    for feature in $FEATURES; do
+        found="$(present_paths "$feature" | tr '\n' ' ')"
+        if [[ -n "${found// /}" ]]; then
+            printf '  %-14s present  %s\n' "$feature" "$found"
+        else
+            printf '  %-14s ejected\n' "$feature"
+        fi
+    done
+    echo
+    echo "Usage:"
+    echo "  bin/template eject <feature>   remove a layer"
+    echo "  bin/template inject <feature>  install a layer from the template remote"
+}
+
+do_eject() {
+    local dry_run=false
+    local targets=()
+
+    for arg in "$@"; do
+        case "$arg" in
+            --dry-run) dry_run=true ;;
+            *) targets+=("$arg") ;;
+        esac
+    done
+
+    if [[ ${#targets[@]} -eq 0 ]]; then
+        echo "Usage: bin/template eject [--dry-run] <feature> [<feature> ...]" >&2
+        exit 1
+    fi
+
+    for feature in "${targets[@]}"; do
+        if ! is_known "$feature"; then
+            echo "Unknown feature: $feature" >&2
+            echo "Known features: $FEATURES" >&2
+            exit 1
+        fi
+    done
+
+    for feature in "${targets[@]}"; do
+        local paths=()
+        while IFS= read -r p; do
+            [[ -n "$p" ]] && paths+=("$p")
+        done < <(present_paths "$feature")
+
+        if [[ ${#paths[@]} -eq 0 ]]; then
+            echo "$feature: already ejected"
+            continue
+        fi
+
+        for path in "${paths[@]}"; do
+            if $dry_run; then
+                echo "$feature: would remove $path"
+            else
+                kind="file"
+                [[ -d "$path" ]] && kind="dir"
+                rm -rf "$path"
+                guard_merge "$path" "$kind"
+                echo "$feature: removed $path"
+            fi
+        done
+
+        $dry_run || "${feature}_after_eject"
+    done
+
+    if $dry_run; then
+        echo
+        echo "Dry run: nothing was changed."
+    else
+        echo
+        echo "Guards appended to .gitattributes so 'git merge template/main' will not restore them."
+    fi
+}
+
+do_inject() {
+    local dry_run=false
+    local targets=()
+
+    for arg in "$@"; do
+        case "$arg" in
+            --dry-run) dry_run=true ;;
+            *) targets+=("$arg") ;;
+        esac
+    done
+
+    if [[ ${#targets[@]} -eq 0 ]]; then
+        echo "Usage: bin/template inject [--dry-run] <feature> [<feature> ...]" >&2
+        exit 1
+    fi
+
+    for feature in "${targets[@]}"; do
+        if ! is_known "$feature"; then
+            echo "Unknown feature: $feature" >&2
+            echo "Known features: $FEATURES" >&2
+            exit 1
+        fi
+    done
+
+    $dry_run || require_template_remote
+
+    for feature in "${targets[@]}"; do
+        local already_present
+        already_present="$(present_paths "$feature" | tr '\n' ' ')"
+        if [[ -n "${already_present// /}" ]]; then
+            echo "$feature: already present ($already_present). Eject first to reinstall." >&2
+            continue
+        fi
+
+        while read -r path; do
+            if $dry_run; then
+                echo "$feature: would install $path"
+            else
+                inject_path_from_remote "$path"
+                local obj_kind="file"
+                if [[ -d "$path" ]]; then
+                    obj_kind="dir"
+                fi
+                unguard_merge "$path" "$obj_kind"
+                echo "$feature: installed $path"
+            fi
+        done < <(feature_paths "$feature")
+
+        $dry_run || "${feature}_after_inject"
+    done
+
+    if $dry_run; then
+        echo
+        echo "Dry run: nothing was changed."
+    else
+        echo
+        echo "Merge guards removed for injected paths. They will update with future template merges."
+    fi
+}
+
+COMMAND="${1:-}"
+shift 2>/dev/null || true
+
+case "$COMMAND" in
+    ""|-l|list)
+        list_features
+        ;;
+    eject)
+        do_eject "$@"
+        ;;
+    inject)
+        do_inject "$@"
+        ;;
+    -h|--help)
+        sed -n '3,17p' "$0" | sed 's/^# \{0,1\}//'
+        ;;
+    *)
+        echo "Unknown command: $COMMAND" >&2
+        echo "Usage: bin/template [list|eject|inject] [--help]" >&2
+        exit 1
+        ;;
+esac
